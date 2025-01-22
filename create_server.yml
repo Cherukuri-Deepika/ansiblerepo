@@ -1,0 +1,21 @@
+---
+- name: Create an EC2 instance
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Launch EC2 instance
+      ec2:
+        key_name: your-key-name
+        instance_type: t2.micro
+        image: ami-xxxxxxxxxxxxxxxxx
+        region: us-east-1
+        count: 1
+        wait: yes
+        state: present
+        instance_tags:
+          Name: "ansible-created-server"
+      register: ec2_info
+
+    - debug:
+        var: ec2_info
+

@@ -1,0 +1,13 @@
+---
+- name: Terminate EC2 instance
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Terminate EC2 instance
+      ec2:
+        instance_ids: 
+          - i-xxxxxxxxxxxxxxxxx
+        region: us-east-1
+        state: absent
+        wait: yes
+
