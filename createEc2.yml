@@ -1,0 +1,71 @@
+---
+- name: Create EC2 instance and deploy application
+  hosts: localhost
+  gather_facts: no
+  collections:
+    - amazon.aws
+  vars:
+    aws_region: "us-east-1"
+    instance_type: "t2.micro"
+    ami_id: "ami-0df8c184d5f6ae949"
+    key_name: "myansibleserv"
+    security_group_name: "launch-wizard-8"
+    user_data: |
+      #!/bin/bash
+      yum update -y
+      yum install -y httpd
+      systemctl start httpd
+      systemctl enable httpd
+      echo "<h1>My Application is Running!</h1>" > /var/www/html/index.html
+  tasks:
+    - name: Create a security group
+      amazon.aws.ec2_security_group:
+        name: "{{ security_group_name }}"
+        description: "Allow HTTP traffic"
+        region: "{{ aws_region }}"
+        vpc_id: "vpc-08e2ee49e9e115a9b" 
+        rules:
+          - proto: tcp
+            from_port: 80
+            to_port: 80
+            cidr_ip: 0.0.0.0/0
+        rules_egress:
+          - proto: all
+            from_port: 0
+            to_port: 0
+            cidr_ip: 0.0.0.0/0
+      register: sg_result
+
+    - name: Launch EC2 instance
+      amazon.aws.ec2_instance:
+        name: "my-application-instance"
+        region: "{{ aws_region }}"
+        instance_type: "{{ instance_type }}"
+        image_id: "{{ ami_id }}"
+        key_name: "{{ key_name }}"
+        security_groups: 
+          - "{{ security_group_name }}"
+        user_data: "{{ user_data }}"
+        wait: yes
+      register: ec2_instance_result
+
+    - name: Output the public IP of the EC2 instance
+      debug:
+        msg: "EC2 Instance Public IP: {{ ec2_instance_result.instances[0].public_ip_address }}"
+
+    - name: Wait for the instance to be reachable
+      ansible.builtin.wait_for:
+        host: "{{ ec2_instance_result.instances[0].public_ip_address }}"
+        port: 80
+        timeout: 300
+
+    - name: Verify application is running
+      ansible.builtin.uri:
+        url: "http://{{ ec2_instance_result.instances[0].public_ip_address }}"
+        return_content: yes
+      register: webpage
+
+    - name: Display application response
+      debug:
+        msg: "Application Response: {{ webpage.content }}"
+
